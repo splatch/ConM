@@ -29,14 +29,17 @@ import javax.management.openmbean.TabularDataSupport;
 import javax.management.openmbean.TabularType;
 
 import org.conm.api.BlockingQueueMXBean;
+import org.conm.api.CompositeTypeMapper;
 
-public class BlockingQueueImpl extends StandardMBean implements BlockingQueueMXBean {
+public class BlockingQueueImpl<T> extends StandardMBean implements BlockingQueueMXBean {
 
-    private final BlockingQueue<?> queue;
+    private final BlockingQueue<T> queue;
+    private final CompositeTypeMapper<T> mapper;
 
-    public BlockingQueueImpl(BlockingQueue<?> queue) throws NotCompliantMBeanException {
+    public BlockingQueueImpl(BlockingQueue<T> queue, CompositeTypeMapper<T> mapper) throws NotCompliantMBeanException {
         super(BlockingQueueMXBean.class);
         this.queue = queue;
+        this.mapper = mapper;
     }
 
     @Override
@@ -55,17 +58,18 @@ public class BlockingQueueImpl extends StandardMBean implements BlockingQueueMXB
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public TabularData browse() throws OpenDataException {
         Object[] array = queue.toArray();
 
-        CompositeType rowType = new CompositeType("element", "Single element in queue", new String[] {"index", "element"}, new String[] {"",""}, new OpenType[] {
-            SimpleType.INTEGER, SimpleType.STRING
+        CompositeType rowType = new CompositeType("element", "Single element in queue", new String[] {"index", "element"}, new String[] {"Element index", "Element"}, new OpenType[] {
+            SimpleType.INTEGER, mapper.getType()
         });
         TabularType tabularType = new TabularType("elements", "Elements contained in array", rowType, new String[] {"index"});
         TabularDataSupport dataSupport = new TabularDataSupport(tabularType);
 
         for (int i = 0; i < array.length; i++) {
-            dataSupport.put(new CompositeDataSupport(rowType, new String[] {"index", "element"}, new Object[] {i, array[i].toString()}));
+            dataSupport.put(new CompositeDataSupport(rowType, new String[] {"index", "element"}, new Object[] {i, mapper.create((T) array[i])}));
         }
 
         return dataSupport;
